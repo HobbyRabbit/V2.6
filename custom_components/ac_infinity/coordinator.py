@@ -1,29 +1,24 @@
-from __future__ import annotations
-
 import logging
-import random
-
 from datetime import timedelta
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, DEFAULT_PORTS, SCAN_INTERVAL
+from .const import DOMAIN, SCAN_INTERVAL, PORTS
+from .ble_controller import ACInfinityBLE
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ACInfinityCoordinator(DataUpdateCoordinator):
 
-    def __init__(self, hass: HomeAssistant, entry):
+    def __init__(self, hass, entry):
 
-        self.hass = hass
-        self.entry = entry
+        self.address = entry.data["address"]
 
-        self.address = entry.data.get("address", "unknown")
+        self.ble = ACInfinityBLE(self.address)
 
-        self.ports = {p: 0 for p in range(1, DEFAULT_PORTS + 1)}
-        self.power = {p: False for p in range(1, DEFAULT_PORTS + 1)}
+        self.ports = {p: 0 for p in range(1, PORTS + 1)}
+        self.power = {p: False for p in range(1, PORTS + 1)}
 
         super().__init__(
             hass,
@@ -34,26 +29,27 @@ class ACInfinityCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
 
-        # Replace with real BLE query later
+        state = await self.ble.read_state()
 
-        temperature = round(20 + random.random() * 5, 1)
-        humidity = round(40 + random.random() * 10, 1)
-
-        data = {
-            "temperature": temperature,
-            "humidity": humidity,
+        return {
+            "temperature": state["temperature"],
+            "humidity": state["humidity"],
             "ports": self.ports,
             "power": self.power,
         }
 
-        return data
-
     async def set_port_speed(self, port, speed):
 
+        await self.ble.set_speed(port, speed)
+
         self.ports[port] = speed
+
         await self.async_request_refresh()
 
     async def set_port_power(self, port, state):
 
+        await self.ble.set_power(port, state)
+
         self.power[port] = state
+
         await self.async_request_refresh()
