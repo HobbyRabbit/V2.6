@@ -1,112 +1,59 @@
 from __future__ import annotations
 
 import logging
+import random
+
 from datetime import timedelta
 
-from bleak import BleakClient
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.core import HomeAssistant
+
+from .const import DOMAIN, DEFAULT_PORTS, SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
-UPDATE_INTERVAL = timedelta(seconds=5)
-PORT_COUNT = 8
-
 
 class ACInfinityCoordinator(DataUpdateCoordinator):
-    """AC Infinity BLE coordinator."""
 
-    def __init__(self, hass, address: str, name: str):
+    def __init__(self, hass: HomeAssistant, entry):
+
+        self.hass = hass
+        self.entry = entry
+
+        self.address = entry.data.get("address", "unknown")
+
+        self.ports = {p: 0 for p in range(1, DEFAULT_PORTS + 1)}
+        self.power = {p: False for p in range(1, DEFAULT_PORTS + 1)}
+
         super().__init__(
             hass,
             _LOGGER,
-            name=name,
-            update_interval=UPDATE_INTERVAL,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=SCAN_INTERVAL),
         )
-
-        self.address = address  # ✅ FIX (was mac)
-        self.name = name
-        self.client: BleakClient | None = None
-
-        # Safe defaults (prevents KeyError + min/max issues)
-        self.data = {
-            "temperature": 0.0,
-            "humidity": 0.0,
-            "ports": {
-                i: {
-                    "power": False,
-                    "speed": 0,
-                }
-                for i in range(1, PORT_COUNT + 1)
-            },
-        }
-
-    # --------------------------------------------------
-    # BLE
-    # --------------------------------------------------
-
-    async def _ensure_connected(self):
-        if self.client and self.client.is_connected:
-            return
-
-        try:
-            self.client = BleakClient(self.address)
-            await self.client.connect()
-        except Exception as err:
-            raise UpdateFailed(f"BLE connect failed: {err}") from err
-
-    # --------------------------------------------------
-    # Poll
-    # --------------------------------------------------
 
     async def _async_update_data(self):
-        """Fetch latest device state."""
 
-        await self._ensure_connected()
+        # Replace with real BLE query later
 
-        try:
-            # TODO:
-            # Replace with real read command when packet decoded.
-            # For now we keep safe defaults so HA doesn't crash.
-            return self.data
+        temperature = round(20 + random.random() * 5, 1)
+        humidity = round(40 + random.random() * 10, 1)
 
-        except Exception as err:
-            raise UpdateFailed(str(err)) from err
+        data = {
+            "temperature": temperature,
+            "humidity": humidity,
+            "ports": self.ports,
+            "power": self.power,
+        }
 
-    # --------------------------------------------------
-    # Controls
-    # --------------------------------------------------
+        return data
 
-    async def set_port_power(self, port: int, on: bool):
-        """Toggle outlet/fan."""
-        await self._ensure_connected()
+    async def set_port_speed(self, port, speed):
 
-        cmd = bytearray([0xA5, port, 0x01 if on else 0x00])
-
-        await self.client.write_gatt_char(
-            "0000fff2-0000-1000-8000-00805f9b34fb",
-            cmd,
-            response=True,
-        )
-
-        self.data["ports"][port]["power"] = on
+        self.ports[port] = speed
         await self.async_request_refresh()
 
-    async def set_port_speed(self, port: int, percent: int):
-        """Set fan speed (0-100%)."""
-        await self._ensure_connected()
+    async def set_port_power(self, port, state):
 
-        percent = max(0, min(100, percent))
-
-        cmd = bytearray([0xA6, port, percent])
-
-        await self.client.write_gatt_char(
-            "0000fff2-0000-1000-8000-00805f9b34fb",
-            cmd,
-            response=True,
-        )
-
-        self.data["ports"][port]["speed"] = percent
+        self.power[port] = state
         await self.async_request_refresh()
