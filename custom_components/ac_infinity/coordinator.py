@@ -26,10 +26,13 @@ class ACInfinityCoordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=timedelta(seconds=SCAN_INTERVAL),
         )
-
     async def _async_update_data(self):
 
-        state = await self.ble.read_state()
+        await self.ble.connect()
+
+        state = await self.ble.request_state()
+
+        return state
 
         return {
             "temperature": state["temperature"],
