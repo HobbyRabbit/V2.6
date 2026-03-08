@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -12,43 +10,43 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(
         [
-            ACInfinityTemperatureSensor(coordinator, entry.entry_id),
-            ACInfinityHumiditySensor(coordinator, entry.entry_id),
+            ACTemperature(coordinator, entry.entry_id),
+            ACHumidity(coordinator, entry.entry_id),
         ]
     )
 
 
-class ACInfinityTemperatureSensor(CoordinatorEntity, SensorEntity):
+class ACTemperature(CoordinatorEntity, SensorEntity):
 
-    _attr_native_unit_of_measurement = "°C"
     _attr_device_class = "temperature"
+    _attr_native_unit_of_measurement = "°C"
 
     def __init__(self, coordinator, entry_id):
 
         super().__init__(coordinator)
 
+        self._attr_unique_id = f"{entry_id}_temp"
         self._attr_name = "AC Infinity Temperature"
-        self._attr_unique_id = f"{entry_id}_temperature"
 
     @property
     def native_value(self):
 
-        return self.coordinator.data.get("temperature")
+        return self.coordinator.data["temperature"]
 
 
-class ACInfinityHumiditySensor(CoordinatorEntity, SensorEntity):
+class ACHumidity(CoordinatorEntity, SensorEntity):
 
-    _attr_native_unit_of_measurement = "%"
     _attr_device_class = "humidity"
+    _attr_native_unit_of_measurement = "%"
 
     def __init__(self, coordinator, entry_id):
 
         super().__init__(coordinator)
 
-        self._attr_name = "AC Infinity Humidity"
         self._attr_unique_id = f"{entry_id}_humidity"
+        self._attr_name = "AC Infinity Humidity"
 
     @property
     def native_value(self):
 
-        return self.coordinator.data.get("humidity")
+        return self.coordinator.data["humidity"]
